@@ -10,40 +10,51 @@ local player = game.Players.LocalPlayer local camera = workspace.CurrentCamera l
 
 _G.HeadSize = 20 _G.Disabled = true
 
+-- AIMBOT
 local aimbotOn = false local aimbotFov = 400 local aimbotSmooth = 1 local aimbotWallCheck = true local aimbotTargetPart = "Head"
 local fovVisible = false local fovColor = Color3.fromRGB(255, 255, 255) local fovGui = nil local fovFrame = nil
 local currentTarget = nil local targetOutline = nil
 
-local triggerOn = false local triggerFov = 100 local triggerDelay = 0.1 local triggerWallCheck = true local lastTriggerTime = 0
+-- SILENT AIM
+local silentAimOn = false local silentAimFov = 400 local silentAimPart = "Head" local silentAimWallCheck = true
 
-local chamsOn = false local chamsCache = {} local tracersOn = false local tracersColor = Color3.fromRGB(255, 255, 255) local tracersTrans = 0.5 local tracersThick = 0.1 local tracersParts = {}
+-- TRIGGER BOT
+local triggerOn = false local triggerFov = 150 local triggerDelay = 0.05 local triggerWallCheck = true local lastTriggerTime = 0
+local triggerAI = true local triggerOffset = 0 local triggerNoOffset = true
+
+-- VISUALS
 local espOn = false local espItems = {} local espColor = Color3.fromRGB(255, 0, 0)
+local chamsOn = false local chamsCache = {}
+local tracersOn = false local tracersColor = Color3.fromRGB(255, 255, 255) local tracersTrans = 0.5 local tracersThick = 0.1 local tracersParts = {}
 local skeletonOn = false local skeletonParts = {} local skeletonThick = 0.02
-local boxEspOn = false local boxEspItems = {} local healthBarOn = false local healthBarItems = {} local distanceOn = false local distanceItems = {} local glowOn = false local glowItems = {}
-local flyOn = false local flySpeed = 50 local bodyVel = nil local bodyGyro = nil local flyContainer = nil local flyStick = nil local flyDot = nil local flyUpBtn = nil local flyDownBtn = nil local flyDragging = false local flyInputConnections = {}
+local boxEspOn = false local boxEspItems = {}
+local healthBarOn = false local healthBarItems = {} local distanceOn = false local distanceItems = {} local glowOn = false local glowItems = {}
+
+-- FLY
+local flyOn = false local flySpeed = 50 local bodyVel = nil local bodyGyro = nil
+local flyContainer = nil local flyStick = nil local flyDot = nil local flyUpBtn = nil local flyDownBtn = nil local flyDragging = false local flyInputConnections = {}
+
 local fakeLagOn = false local fakeLagDelay = 1 local antiAfkOn = false local shiftLockOn = false
 local selectedPlayer = nil local panicKey = Enum.KeyCode.F local configFolder = "MrKlaner_Configs"
 local originalSizes = {} local errorLog = {} local errorCount = {} local maxErrors = 3 local aiActive = true
 
 local function createFovCircle()
     if fovGui then fovGui:Destroy() end
-    fovGui = Instance.new("ScreenGui", game.CoreGui) fovGui.Name = "FOV_Circle" fovGui.ResetOnSpawn = false fovGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    fovFrame = Instance.new("Frame", fovGui) fovFrame.Size = UDim2.new(0, aimbotFov * 2, 0, aimbotFov * 2) fovFrame.Position = UDim2.new(0.5, -aimbotFov, 0.5, -aimbotFov) fovFrame.BackgroundTransparency = 1 fovFrame.BorderSizePixel = 2 fovFrame.BorderColor3 = fovColor fovFrame.ZIndex = 998 fovFrame.Visible = fovVisible
+    fovGui = Instance.new("ScreenGui", game.CoreGui) fovGui.Name = "FOV_Circle" fovGui.ResetOnSpawn = false
+    fovFrame = Instance.new("Frame", fovGui) fovFrame.Size = UDim2.new(0, aimbotFov * 2, 0, aimbotFov * 2) fovFrame.Position = UDim2.new(0.5, -aimbotFov, 0.5, -aimbotFov) fovFrame.BackgroundTransparency = 1 fovFrame.BorderSizePixel = 3 fovFrame.BorderColor3 = fovColor fovFrame.ZIndex = 998 fovFrame.Visible = fovVisible
 end
-
 local function updateFovCircle()
     if not fovFrame then return end
     fovFrame.Size = UDim2.new(0, aimbotFov * 2, 0, aimbotFov * 2) fovFrame.Position = UDim2.new(0.5, -aimbotFov, 0.5, -aimbotFov) fovFrame.BorderColor3 = fovColor fovFrame.Visible = fovVisible
 end
-
 local function safeTeleport(id) pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, id) end) end
 local function clearTracers() for _, p in pairs(tracersParts) do pcall(function() p:Destroy() end) end tracersParts = {} end
 local function stopFly() for _, conn in pairs(flyInputConnections) do pcall(function() conn:Disconnect() end) end flyInputConnections = {} if bodyVel then bodyVel:Destroy() bodyVel = nil end if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end if flyContainer then flyContainer:Destroy() flyContainer = nil end pcall(function() if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.PlatformStand = false end end) end
 local function applyHitbox() for _, v in pairs(Players:GetPlayers()) do if v ~= player and v.Character then for _, part in pairs(v.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then if not originalSizes[part] then originalSizes[part] = part.Size end pcall(function() part.Size = originalSizes[part] * (_G.HeadSize / 2) part.Transparency = 0.7 part.BrickColor = BrickColor.new("Really blue") part.Material = "Neon" end) end end end end end
 local function resetHitbox() for _, v in pairs(Players:GetPlayers()) do if v ~= player and v.Character then for _, part in pairs(v.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then pcall(function() part.Size = Vector3.new(2, 2, 1) part.Transparency = 1 part.BrickColor = BrickColor.new("Medium stone grey") part.Material = "Plastic" end) end end end end originalSizes = {} end
-local function panicMode() _G.Disabled = false aimbotOn = false triggerOn = false chamsOn = false tracersOn = false espOn = false skeletonOn = false boxEspOn = false healthBarOn = false distanceOn = false glowOn = false flyOn = false fakeLagOn = false shiftLockOn = false stopFly() resetHitbox() clearTracers() if targetOutline then targetOutline:Destroy() targetOutline = nil end currentTarget = nil for _, x in pairs(espItems) do pcall(function() x:Destroy() end) end espItems = {} for _, x in pairs(skeletonParts) do pcall(function() x:Destroy() end) end skeletonParts = {} for _, x in pairs(boxEspItems) do pcall(function() x:Destroy() end) end boxEspItems = {} for _, x in pairs(healthBarItems) do pcall(function() x:Destroy() end) end healthBarItems = {} for _, x in pairs(distanceItems) do pcall(function() x:Destroy() end) end distanceItems = {} for _, x in pairs(glowItems) do pcall(function() x:Destroy() end) end glowItems = {} for _, pl in pairs(Players:GetPlayers()) do if pl ~= player and pl.Character and chamsCache[pl] then for _, pt in pairs(pl.Character:GetDescendants()) do if pt:IsA("BasePart") then pcall(function() pt.Color3 = Color3.fromRGB(163, 162, 165) pt.Material = "Plastic" end) end end chamsCache[pl] = nil end end Rayfield:Notify({Title = "PANIC!", Content = "All off", Duration = 3}) end
-local function aiFix(err, funcName) local fixes = {["attempt to index nil"] = function() task.wait(0.5) return true end, ["Infinite yield"] = function() task.wait(0.1) return true end, ["Memory"] = function() for _, v in pairs(workspace:GetChildren()) do if v.Name:find("Tracer") then v:Destroy() end end return true end} for pattern, fix in pairs(fixes) do if err:find(pattern) then return fix() end end return false end
-local function safeRun(func, funcName) local success, err = pcall(func) if not success then errorCount[funcName] = (errorCount[funcName] or 0) + 1 table.insert(errorLog, {time = tick(), func = funcName, error = tostring(err), count = errorCount[funcName]}) local fixed = aiFix(tostring(err), funcName) if errorCount[funcName] >= maxErrors then Rayfield:Notify({Title = "AI Fixer", Content = funcName .. " disabled", Duration = 5}) return false end if fixed then return pcall(func) end end return success end
+local function panicMode() _G.Disabled = false aimbotOn = false silentAimOn = false triggerOn = false chamsOn = false tracersOn = false espOn = false skeletonOn = false boxEspOn = false healthBarOn = false distanceOn = false glowOn = false flyOn = false fakeLagOn = false shiftLockOn = false stopFly() resetHitbox() clearTracers() if targetOutline then targetOutline:Destroy() targetOutline = nil end currentTarget = nil for _, x in pairs(espItems) do pcall(function() x:Destroy() end) end espItems = {} for _, x in pairs(skeletonParts) do pcall(function() x:Destroy() end) end skeletonParts = {} for _, x in pairs(boxEspItems) do pcall(function() x:Destroy() end) end boxEspItems = {} for _, x in pairs(healthBarItems) do pcall(function() x:Destroy() end) end healthBarItems = {} for _, x in pairs(distanceItems) do pcall(function() x:Destroy() end) end distanceItems = {} for _, x in pairs(glowItems) do pcall(function() x:Destroy() end) end glowItems = {} for _, pl in pairs(Players:GetPlayers()) do if pl ~= player and pl.Character and chamsCache[pl] then for _, pt in pairs(pl.Character:GetDescendants()) do if pt:IsA("BasePart") then pcall(function() pt.Color3 = Color3.fromRGB(163, 162, 165) pt.Material = "Plastic" end) end end chamsCache[pl] = nil end end Rayfield:Notify({Title = "PANIC!", Content = "All off", Duration = 3}) end
+local function aiFix(err) local fixes = {["attempt to index nil"] = function() task.wait(0.5) return true end} for pattern, fix in pairs(fixes) do if err:find(pattern) then return fix() end end return false end
+local function safeRun(func, funcName) local success, err = pcall(func) if not success then errorCount[funcName] = (errorCount[funcName] or 0) + 1 table.insert(errorLog, {time = tick(), func = funcName, error = tostring(err), count = errorCount[funcName]}) local fixed = aiFix(tostring(err)) if errorCount[funcName] >= maxErrors then Rayfield:Notify({Title = "AI Fixer", Content = funcName .. " disabled", Duration = 5}) return false end if fixed then return pcall(func) end end return success end
 
 UIS.InputBegan:Connect(function(input, gameProcessed) if gameProcessed then return end if input.KeyCode == panicKey then panicMode() end end)
 
@@ -64,12 +75,22 @@ Tab.Aim:CreateToggle({Name = "Wall Check", CurrentValue = true, Callback = funct
 Tab.Aim:CreateToggle({Name = "FOV Circle", CurrentValue = false, Callback = function(v) fovVisible = v if v and not fovGui then createFovCircle() end updateFovCircle() end})
 Tab.Aim:CreateDropdown({Name = "FOV Color", Options = {"White", "Red", "Green", "Blue", "Yellow", "Purple"}, CurrentOption = "White", Callback = function(v) if v == "White" then fovColor = Color3.fromRGB(255, 255, 255) elseif v == "Red" then fovColor = Color3.fromRGB(255, 0, 0) elseif v == "Green" then fovColor = Color3.fromRGB(0, 255, 0) elseif v == "Blue" then fovColor = Color3.fromRGB(0, 0, 255) elseif v == "Yellow" then fovColor = Color3.fromRGB(255, 255, 0) elseif v == "Purple" then fovColor = Color3.fromRGB(255, 0, 255) end updateFovCircle() if targetOutline then targetOutline.FillColor = fovColor targetOutline.OutlineColor = fovColor end end})
 
+-- SILENT AIM
+Tab.Aim:CreateParagraph({Title = "Silent Aim", Content = "Стреляет без поворота камеры"})
+Tab.Aim:CreateToggle({Name = "Enable Silent Aim", CurrentValue = false, Callback = function(v) silentAimOn = v end})
+Tab.Aim:CreateSlider({Name = "Silent FOV", Range = {50, 800}, Increment = 10, Suffix = " px", CurrentValue = 400, Callback = function(v) silentAimFov = v end})
+Tab.Aim:CreateDropdown({Name = "Silent Part", Options = {"Head", "HumanoidRootPart", "Torso"}, CurrentOption = "Head", Callback = function(v) silentAimPart = v end})
+Tab.Aim:CreateToggle({Name = "Silent Wall Check", CurrentValue = true, Callback = function(v) silentAimWallCheck = v end})
+
 -- TRIGGER TAB
-Tab.Trigger:CreateParagraph({Title = "Trigger Bot", Content = "Auto shoot"})
+Tab.Trigger:CreateParagraph({Title = "Trigger Bot + AI", Content = "Умный авто-выстрел"})
 Tab.Trigger:CreateToggle({Name = "Enable Trigger", CurrentValue = false, Callback = function(v) triggerOn = v if v then lastTriggerTime = 0 end end})
-Tab.Trigger:CreateSlider({Name = "Trigger FOV", Range = {20, 300}, Increment = 10, Suffix = " px", CurrentValue = 100, Callback = function(v) triggerFov = v end})
-Tab.Trigger:CreateSlider({Name = "Delay", Range = {1, 50}, Increment = 1, Suffix = " ms", CurrentValue = 10, Callback = function(v) triggerDelay = v / 100 end})
+Tab.Trigger:CreateSlider({Name = "Trigger FOV", Range = {20, 400}, Increment = 10, Suffix = " px", CurrentValue = 150, Callback = function(v) triggerFov = v end})
+Tab.Trigger:CreateSlider({Name = "Delay (ms)", Range = {1, 100}, Increment = 1, CurrentValue = 5, Callback = function(v) triggerDelay = v / 100 end})
+Tab.Trigger:CreateToggle({Name = "AI Auto-Part", CurrentValue = true, Callback = function(v) triggerAI = v end})
 Tab.Trigger:CreateToggle({Name = "Wall Check", CurrentValue = true, Callback = function(v) triggerWallCheck = v end})
+Tab.Trigger:CreateSlider({Name = "Offset %", Range = {0, 100}, Increment = 1, CurrentValue = 0, Callback = function(v) triggerOffset = v / 100 end})
+Tab.Trigger:CreateToggle({Name = "Disable Offset", CurrentValue = true, Callback = function(v) triggerNoOffset = v end})
 
 -- VISUAL TAB
 Tab.Visual:CreateParagraph({Title = "ESP", Content = "Player highlight"})
@@ -80,40 +101,40 @@ Tab.Visual:CreateToggle({Name = "Chams", CurrentValue = false, Callback = functi
 Tab.Visual:CreateParagraph({Title = "Tracers", Content = "Lines"})
 Tab.Visual:CreateToggle({Name = "Tracers", CurrentValue = false, Callback = function(v) tracersOn = v if not v then clearTracers() end end})
 Tab.Visual:CreateDropdown({Name = "Tracer Color", Options = {"White", "Red", "Green", "Blue", "Yellow", "Purple"}, CurrentOption = "White", Callback = function(v) if v == "White" then tracersColor = Color3.fromRGB(255, 255, 255) elseif v == "Red" then tracersColor = Color3.fromRGB(255, 0, 0) elseif v == "Green" then tracersColor = Color3.fromRGB(0, 255, 0) elseif v == "Blue" then tracersColor = Color3.fromRGB(0, 0, 255) elseif v == "Yellow" then tracersColor = Color3.fromRGB(255, 255, 0) elseif v == "Purple" then tracersColor = Color3.fromRGB(255, 0, 255) end end})
-Tab.Visual:CreateSlider({Name = "Tracer Trans", Range = {0, 10}, Increment = 1, CurrentValue = 5, Callback = function(v) tracersTrans = v / 10 end})
-Tab.Visual:CreateSlider({Name = "Tracer Thick", Range = {1, 10}, Increment = 1, CurrentValue = 1, Callback = function(v) tracersThick = v / 10 end})
+Tab.Visual:CreateSlider({Name = "Transparency", Range = {0, 10}, Increment = 1, CurrentValue = 5, Callback = function(v) tracersTrans = v / 10 end})
+Tab.Visual:CreateSlider({Name = "Thickness", Range = {1, 10}, Increment = 1, CurrentValue = 1, Callback = function(v) tracersThick = v / 10 end})
 Tab.Visual:CreateParagraph({Title = "Skeleton ESP", Content = "Bones"})
 Tab.Visual:CreateToggle({Name = "Skeleton", CurrentValue = false, Callback = function(v) skeletonOn = v if not v then for _, x in pairs(skeletonParts) do pcall(function() x:Destroy() end) end skeletonParts = {} end end})
 Tab.Visual:CreateSlider({Name = "Bone Thick", Range = {1, 10}, Increment = 1, CurrentValue = 1, Callback = function(v) skeletonThick = v / 50 end})
-Tab.Visual:CreateParagraph({Title = "Box ESP", Content = "2D boxes"})
+Tab.Visual:CreateParagraph({Title = "Box ESP", Content = "2D"})
 Tab.Visual:CreateToggle({Name = "Box ESP", CurrentValue = false, Callback = function(v) boxEspOn = v if not v then for _, x in pairs(boxEspItems) do pcall(function() x:Destroy() end) end boxEspItems = {} end end})
 Tab.Visual:CreateParagraph({Title = "Health Bar", Content = "HP"})
 Tab.Visual:CreateToggle({Name = "Health Bar", CurrentValue = false, Callback = function(v) healthBarOn = v if not v then for _, x in pairs(healthBarItems) do pcall(function() x:Destroy() end) end healthBarItems = {} end end})
 Tab.Visual:CreateParagraph({Title = "Distance", Content = "Meters"})
 Tab.Visual:CreateToggle({Name = "Distance", CurrentValue = false, Callback = function(v) distanceOn = v if not v then for _, x in pairs(distanceItems) do pcall(function() x:Destroy() end) end distanceItems = {} end end})
-Tab.Visual:CreateParagraph({Title = "Glow ESP", Content = "Blue glow"})
+Tab.Visual:CreateParagraph({Title = "Glow ESP", Content = "Blue"})
 Tab.Visual:CreateToggle({Name = "Glow ESP", CurrentValue = false, Callback = function(v) glowOn = v if not v then for _, x in pairs(glowItems) do pcall(function() x:Destroy() end) end glowItems = {} end end})
 
 -- FLY TAB
-Tab.Fly:CreateParagraph({Title = "Fly Mode", Content = "Joystick + Height buttons"})
+Tab.Fly:CreateParagraph({Title = "Fly Mode", Content = "Joystick + Buttons"})
 Tab.Fly:CreateToggle({Name = "Enable Fly", CurrentValue = false, Callback = function(v) flyOn = v if v then stopFly() flyContainer = Instance.new("Frame", game.CoreGui) flyContainer.Size = UDim2.new(0, 200, 0, 250) flyContainer.Position = UDim2.new(0, 20, 0, 150) flyContainer.BackgroundTransparency = 1 flyContainer.ZIndex = 200 flyContainer.Active = true flyContainer.Draggable = true flyStick = Instance.new("Frame", flyContainer) flyStick.Size = UDim2.new(0, 120, 0, 120) flyStick.Position = UDim2.new(0, 35, 0, 60) flyStick.BackgroundColor3 = Color3.fromRGB(255, 255, 255) flyStick.BackgroundTransparency = 0.75 flyStick.BorderSizePixel = 2 flyStick.BorderColor3 = Color3.fromRGB(255, 255, 255) flyStick.ZIndex = 201 flyDot = Instance.new("Frame", flyStick) flyDot.Size = UDim2.new(0, 30, 0, 30) flyDot.Position = UDim2.new(0.5, -15, 0.5, -15) flyDot.BackgroundColor3 = Color3.fromRGB(0, 150, 255) flyDot.BackgroundTransparency = 0.3 flyDot.BorderSizePixel = 0 flyDot.ZIndex = 202 flyDot.Active = true flyUpBtn = Instance.new("TextButton", flyContainer) flyUpBtn.Size = UDim2.new(0, 40, 0, 40) flyUpBtn.Position = UDim2.new(1, -50, 0, 70) flyUpBtn.Text = "+" flyUpBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255) flyUpBtn.TextColor3 = Color3.fromRGB(255, 255, 255) flyUpBtn.TextSize = 24 flyUpBtn.BackgroundTransparency = 0.4 flyUpBtn.BorderSizePixel = 0 flyUpBtn.ZIndex = 201 flyDownBtn = Instance.new("TextButton", flyContainer) flyDownBtn.Size = UDim2.new(0, 40, 0, 40) flyDownBtn.Position = UDim2.new(1, -50, 0, 120) flyDownBtn.Text = "-" flyDownBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0) flyDownBtn.TextColor3 = Color3.fromRGB(255, 255, 255) flyDownBtn.TextSize = 24 flyDownBtn.BackgroundTransparency = 0.4 flyDownBtn.BorderSizePixel = 0 flyDownBtn.ZIndex = 201 local conn1 = flyDot.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then flyDragging = true end end) local conn2 = UIS.InputEnded:Connect(function(i) flyDragging = false if flyDot then flyDot.Position = UDim2.new(0.5, -15, 0.5, -15) end if bodyVel then bodyVel.Velocity = Vector3.zero end end) local conn3 = UIS.InputChanged:Connect(function(i) if flyDragging and bodyVel then local center = flyStick.AbsolutePosition + flyStick.AbsoluteSize / 2 local dir = Vector2.new(i.Position.X - center.X, i.Position.Y - center.Y) local maxDist = 45 if dir.Magnitude > maxDist then dir = dir.Unit * maxDist end flyDot.Position = UDim2.new(0, dir.X + 45, 0, dir.Y + 45) local forward = camera.CFrame.LookVector local right = camera.CFrame.RightVector bodyVel.Velocity = (forward * (-dir.Y / maxDist) + right * (dir.X / maxDist)) * flySpeed if bodyGyro then bodyGyro.CFrame = camera.CFrame end end end) flyInputConnections = {conn1, conn2, conn3} flyUpBtn.MouseButton1Down:Connect(function() if bodyVel then bodyVel.Velocity = Vector3.new(0, flySpeed, 0) end end) flyUpBtn.MouseButton1Up:Connect(function() if bodyVel then bodyVel.Velocity = Vector3.zero end end) flyDownBtn.MouseButton1Down:Connect(function() if bodyVel then bodyVel.Velocity = Vector3.new(0, -flySpeed, 0) end end) flyDownBtn.MouseButton1Up:Connect(function() if bodyVel then bodyVel.Velocity = Vector3.zero end end) pcall(function() local ch = player.Character or player.CharacterAdded:Wait() local rt = ch:WaitForChild("HumanoidRootPart") ch:WaitForChild("Humanoid").PlatformStand = true bodyVel = Instance.new("BodyVelocity", rt) bodyVel.Velocity = Vector3.zero bodyVel.MaxForce = Vector3.new(400000, 400000, 400000) bodyGyro = Instance.new("BodyGyro", rt) bodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000) bodyGyro.CFrame = rt.CFrame end) else stopFly() end end})
 Tab.Fly:CreateSlider({Name = "Speed", Range = {10, 200}, Increment = 10, Suffix = " s", CurrentValue = 50, Callback = function(v) flySpeed = v end})
 Tab.Fly:CreateToggle({Name = "Fake Lag", CurrentValue = false, Callback = function(v) fakeLagOn = v end})
 Tab.Fly:CreateSlider({Name = "Lag Delay", Range = {1, 10}, Increment = 1, Suffix = " s", CurrentValue = 1, Callback = function(v) fakeLagDelay = v end})
 
 -- PLAYERS TAB
-Tab.Players:CreateParagraph({Title = "Player List", Content = "Select player"})
+Tab.Players:CreateParagraph({Title = "Player List", Content = "Select"})
 local playerDropdown = Tab.Players:CreateDropdown({Name = "Select Player", Options = {"None"}, CurrentOption = "None", Callback = function(v) if v == "None" then selectedPlayer = nil else selectedPlayer = Players:FindFirstChild(v) end end})
 task.spawn(function() while task.wait(3) do local names = {} for _, plr in pairs(Players:GetPlayers()) do if plr ~= player then table.insert(names, plr.Name) end end if #names == 0 then names = {"None"} end playerDropdown:SetOptions(names) if selectedPlayer and not Players:FindFirstChild(selectedPlayer.Name) then selectedPlayer = nil end end end)
-Tab.Players:CreateButton({Name = "Teleport to Player", Callback = function() if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") if root then root.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame Rayfield:Notify({Title = "Teleport", Content = "To " .. selectedPlayer.Name, Duration = 3}) end else Rayfield:Notify({Title = "Error", Content = "Player not found", Duration = 3}) end end})
-Tab.Players:CreateButton({Name = "Spectate Player", Callback = function() task.spawn(function() while selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") do camera.CameraSubject = selectedPlayer.Character task.wait(0.5) end camera.CameraSubject = player.Character end) Rayfield:Notify({Title = "Spectate", Content = "Watching " .. (selectedPlayer and selectedPlayer.Name or "?"), Duration = 3}) end})
+Tab.Players:CreateButton({Name = "Teleport", Callback = function() if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") if root then root.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame Rayfield:Notify({Title = "Teleport", Content = "To " .. selectedPlayer.Name, Duration = 3}) end else Rayfield:Notify({Title = "Error", Content = "Not found", Duration = 3}) end end})
+Tab.Players:CreateButton({Name = "Spectate", Callback = function() task.spawn(function() while selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") do camera.CameraSubject = selectedPlayer.Character task.wait(0.5) end camera.CameraSubject = player.Character end) Rayfield:Notify({Title = "Spectate", Content = "Watching", Duration = 3}) end})
 
 -- UTIL TAB
 Tab.Util:CreateParagraph({Title = "Utilities", Content = "Anti AFK, Server Hop"})
 Tab.Util:CreateToggle({Name = "Anti AFK", CurrentValue = false, Callback = function(v) antiAfkOn = v end})
 Tab.Util:CreateButton({Name = "Server Hop", Callback = function() pcall(function() local d = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")) local s = {} for _, v in pairs(d.data) do if v.playing < v.maxPlayers and v.id ~= game.JobId then table.insert(s, v.id) end end if #s > 1 then safeTeleport(s[math.random(1, #s)]) else Rayfield:Notify({Title = "Error", Content = "No servers", Duration = 3}) end end) end})
 Tab.Util:CreateButton({Name = "Small Server", Callback = function() pcall(function() local d = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")) local s = {} for _, v in pairs(d.data) do if v.playing < v.maxPlayers and v.id ~= game.JobId then table.insert(s, {id = v.id, playing = v.playing}) end end if #s > 0 then table.sort(s, function(a, b) return a.playing < b.playing end) safeTeleport(s[1].id) else Rayfield:Notify({Title = "Error", Content = "No servers", Duration = 3}) end end) end})
-Tab.Util:CreateParagraph({Title = "Panic Key", Content = "Emergency off"})
+Tab.Util:CreateParagraph({Title = "Panic Key", Content = "Emergency"})
 Tab.Util:CreateDropdown({Name = "Key", Options = {"F", "G", "H", "J", "K", "L", "T", "Y", "P", "X", "C", "V"}, CurrentOption = "F", Callback = function(v) panicKey = Enum.KeyCode[v] end})
 
 -- OPTIMIZE TAB
@@ -122,7 +143,7 @@ Tab.Opt:CreateToggle({Name = "Potato Graphics", CurrentValue = false, Callback =
 Tab.Opt:CreateToggle({Name = "Low Render", CurrentValue = false, Callback = function(v) pcall(function() settings().Rendering.QualityLevel = v and 1 or 10 end) end})
 Tab.Opt:CreateParagraph({Title = "Config", Content = "Save/Load"})
 Tab.Opt:CreateButton({Name = "Save Config", Callback = function() local c = {hs = _G.HeadSize, dis = _G.Disabled, af = aimbotFov, as = aimbotSmooth, fv = fovVisible, fc = {fovColor.R, fovColor.G, fovColor.B}, tf = triggerFov, td = triggerDelay, tw = triggerWallCheck, tt = tracersTrans, th = tracersThick, st = skeletonThick, fs = flySpeed, fd = fakeLagDelay} pcall(function() if not isfolder(configFolder) then makefolder(configFolder) end writefile(configFolder .. "/config.json", HttpService:JSONEncode(c)) Rayfield:Notify({Title = "Config", Content = "Saved!", Duration = 3}) end) end})
-Tab.Opt:CreateButton({Name = "Load Config", Callback = function() pcall(function() if isfile(configFolder .. "/config.json") then local c = HttpService:JSONDecode(readfile(configFolder .. "/config.json")) _G.HeadSize = c.hs _G.Disabled = c.dis aimbotFov = c.af aimbotSmooth = c.as fovVisible = c.fv fovColor = Color3.fromRGB(c.fc[1], c.fc[2], c.fc[3]) triggerFov = c.tf triggerDelay = c.td triggerWallCheck = c.tw tracersTrans = c.tt tracersThick = c.th skeletonThick = c.st flySpeed = c.fs fakeLagDelay = c.fd updateFovCircle() if _G.Disabled then applyHitbox() else resetHitbox() end Rayfield:Notify({Title = "Config", Content = "Loaded!", Duration = 3}) else Rayfield:Notify({Title = "Error", Content = "No config found", Duration = 3}) end end) end})
+Tab.Opt:CreateButton({Name = "Load Config", Callback = function() pcall(function() if isfile(configFolder .. "/config.json") then local c = HttpService:JSONDecode(readfile(configFolder .. "/config.json")) _G.HeadSize = c.hs _G.Disabled = c.dis aimbotFov = c.af aimbotSmooth = c.as fovVisible = c.fv fovColor = Color3.fromRGB(c.fc[1], c.fc[2], c.fc[3]) triggerFov = c.tf triggerDelay = c.td triggerWallCheck = c.tw tracersTrans = c.tt tracersThick = c.th skeletonThick = c.st flySpeed = c.fs fakeLagDelay = c.fd updateFovCircle() if _G.Disabled then applyHitbox() else resetHitbox() end Rayfield:Notify({Title = "Config", Content = "Loaded!", Duration = 3}) else Rayfield:Notify({Title = "Error", Content = "No config", Duration = 3}) end end) end})
 
 player.CharacterAdded:Connect(function(ch) if shiftLockOn then task.wait(0.5) pcall(function() ch:WaitForChild("Humanoid").AutoRotate = false end) end if flyOn then stopFly() flyOn = false end end)
 
@@ -151,16 +172,19 @@ RunService.RenderStepped:Connect(function(dt)
     
     if aimbotOn and bestTarget then local targetPos = bestTarget.Character[aimbotTargetPart].Position local newCF = CFrame.lookAt(camera.CFrame.Position, targetPos) camera.CFrame = camera.CFrame:Lerp(newCF, aimbotSmooth * dt * 2) end
     
-    if triggerOn and bestTarget then local pos, _ = camera:WorldToViewportPoint(bestTarget.Character[aimbotTargetPart].Position) local screenDist = (Vector2.new(pos.X, pos.Y) - camera.ViewportSize / 2).Magnitude if screenDist < triggerFov and tick() - lastTriggerTime >= triggerDelay then pcall(function() local tool = player.Character and player.Character:FindFirstChildOfClass("Tool") if tool then tool:Activate() lastTriggerTime = tick() end end) end end
+    -- SILENT AIM
+    if silentAimOn then pcall(function() local tool = player.Character and player.Character:FindFirstChildOfClass("Tool") if not tool then return end local h = player.Character:FindFirstChild("Head") if not h then return end local st, sd = nil, silentAimFov for _, pl in pairs(Players:GetPlayers()) do if pl ~= player and pl.Character and pl.Character:FindFirstChild(silentAimPart) and pl.Character[silentAimPart]:IsA("BasePart") and pl.Character:FindFirstChild("Humanoid") and pl.Character.Humanoid.Health > 0 then local tp = pl.Character[silentAimPart].Position local d = (tp - h.Position).Magnitude if d < sd then local canHit = true if silentAimWallCheck then local ray = Ray.new(h.Position, (tp - h.Position).Unit * d) local hit = workspace:FindPartOnRay(ray, player.Character, false, true) canHit = hit and hit:IsDescendantOf(pl.Character) end if canHit then local pos, onScreen = camera:WorldToViewportPoint(tp) if onScreen and (Vector2.new(pos.X, pos.Y) - camera.ViewportSize / 2).Magnitude < silentAimFov then sd, st = d, pl end end end end end if st then local oldPos = st.Character[silentAimPart].Position pcall(function() st.Character[silentAimPart].Position = h.Position end) tool:Activate() task.wait(0.02) pcall(function() st.Character[silentAimPart].Position = oldPos end) end end) end
+    
+    -- TRIGGER BOT
+    if triggerOn and bestTarget then local targetPart = bestTarget.Character[aimbotTargetPart] if triggerAI then local bestPart = nil local bestScore = math.huge local bodyParts = {"Head", "UpperTorso", "Torso", "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm"} for _, partName in pairs(bodyParts) do local part = bestTarget.Character:FindFirstChild(partName) if part and part:IsA("BasePart") then local pos, onScreen = camera:WorldToViewportPoint(part.Position) if onScreen then local screenDist = (Vector2.new(pos.X, pos.Y) - camera.ViewportSize / 2).Magnitude local priority = partName == "Head" and 0.1 or (partName:find("Torso") and 0.5 or 0.7) local score = screenDist * priority if score < bestScore then bestScore = score bestPart = part end end end end if bestPart then targetPart = bestPart end end local pos, _ = camera:WorldToViewportPoint(targetPart.Position) local screenDist = (Vector2.new(pos.X, pos.Y) - camera.ViewportSize / 2).Magnitude if not triggerNoOffset and triggerOffset > 0 then screenDist = screenDist * (1 + triggerOffset) end if screenDist < triggerFov and tick() - lastTriggerTime >= triggerDelay then pcall(function() local tool = player.Character and player.Character:FindFirstChildOfClass("Tool") if tool then tool:Activate() lastTriggerTime = tick() end end) end end
     
     if chamsOn then for _, pl in pairs(Players:GetPlayers()) do if pl ~= player and pl.Character and not chamsCache[pl] then for _, pt in pairs(pl.Character:GetDescendants()) do if pt:IsA("BasePart") then pcall(function() pt.Color3 = Color3.fromRGB(255, 0, 0) pt.Material = "ForceField" end) end end chamsCache[pl] = true end end end
 end)
 
 task.spawn(function() while task.wait(1) do if fovVisible and (not fovGui or not fovGui.Parent) then createFovCircle() updateFovCircle() end end end)
-
 task.spawn(function() while task.wait(10) do if not aiActive then continue end local fixes = 0 if fovVisible and (not fovGui or not fovGui.Parent) then createFovCircle() updateFovCircle() fixes = fixes + 1 end if not panicGui or not panicGui.Parent then panicGui = Instance.new("ScreenGui", game.CoreGui) panicGui.Name = "PanicButton" panicGui.ResetOnSpawn = false panicBtn = Instance.new("TextButton", panicGui) panicBtn.Size = UDim2.new(0, 60, 0, 60) panicBtn.Position = UDim2.new(1, -70, 0, 10) panicBtn.Text = "❌" panicBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0) panicBtn.TextColor3 = Color3.fromRGB(255, 255, 255) panicBtn.TextSize = 30 panicBtn.BackgroundTransparency = 0.3 panicBtn.BorderSizePixel = 0 panicBtn.ZIndex = 999 panicBtn.Draggable = true panicBtn.MouseButton1Click:Connect(function() panicMode() end) fixes = fixes + 1 end if tracersOn and #tracersParts > 20 then clearTracers() fixes = fixes + 1 end if flyOn and (not bodyVel or not bodyVel.Parent) then stopFly() flyOn = false fixes = fixes + 1 end if espOn and #espItems > 50 then for _, x in pairs(espItems) do pcall(function() x:Destroy() end) end espItems = {} fixes = fixes + 1 end if fixes > 0 then Rayfield:Notify({Title = "AI Fixer", Content = "Fixed " .. fixes .. " errors", Duration = 3}) end end end)
 
 task.spawn(function() for i = 1, 3 do pcall(function() local s = Instance.new("Sound", game.CoreGui) s.SoundId = "rbxassetid://9120386436" s.Volume = 1 s:Play() task.wait(0.15) s:Destroy() end) task.wait(0.05) end end)
 task.spawn(function() while task.wait(60) do if #errorLog > 0 then pcall(function() if not isfolder("MrKlaner_Logs") then makefolder("MrKlaner_Logs") end writefile("MrKlaner_Logs/errors_" .. os.date("%Y%m%d_%H%M%S") .. ".json", HttpService:JSONEncode(errorLog)) errorLog = {} end) end end end)
 
-Rayfield:Notify({Title = "Mr Klaner HuB", Content = "Full script ready! ^_^", Duration = 5})
+Rayfield:Notify({Title = "Mr Klaner HuB", Content = "AimBot + Silent Aim + Trigger AI ready!", Duration = 5})
